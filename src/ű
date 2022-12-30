@@ -1,0 +1,42 @@
+#include "input.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+Input_t inputInit(unsigned len, InputHandler *handlers, InputFn fallbackHandler) {
+	Input_t ret = {
+		.len = len,
+		.handlers = malloc(sizeof(InputHandler)*len),
+		.fallbackHandler = fallbackHandler
+	};
+	if(!ret.handlers) // WARNING: Silent fail
+		goto err;
+
+	memcpy((void *)ret.handlers, handlers, sizeof(InputHandler)*len);
+	//memcpy((void *)&ret.handlers, handlers, sizeof(InputFn*)*len);
+
+	return ret;
+err:
+	return (Input_t){0};
+}
+
+void inputDestroy(Input_t *restrict input) {
+	free((void *)input->handlers);
+	input->handlers = NULL;
+}
+
+void inputLoop(Input_t input, char (*getInput)(void *), void *getInput_arg) {
+	if(!input.handlers)
+		return;
+	char c = getInput(getInput_arg);
+	if(c == EOF)
+		return;
+	for(int i = 0; i < input.len; i++) {
+		if(input.handlers[i].key == c) {
+			input.handlers[i].function(c);
+			return;
+		}
+	}
+	input.fallbackHandler(c);
+}
+
