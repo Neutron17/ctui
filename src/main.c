@@ -5,10 +5,11 @@
 #include <termios.h>
 #include <stdbool.h>
 
+#include "common.h"
 #include "term.h"
 #include "input.h"
-
-#define ESC "\033"
+#include "color.h"
+#include "scene/parse.h"
 
 /*
  * VARIABLES
@@ -59,16 +60,29 @@ int main(int argc, char *argv[]) {
 			.attributes = {.bits = 0}
 		}
 	};
+	printf(RGB_BG(255, 0, 0)"hi"CRESET"\n");
 	Input_t inp = inputInit(
 		2,
 		&*handlers,
 		genericHandler
 	);
 
+	int i = 0;
 	while(running) {
+		struct Scene a = sceneParse("foo.dat");
+		struct Scene b = sceneParse("bar.dat");
 		clear();
-		inputLoop(inp, inputGetter, NULL, NULL);
-		fflush(stdout);
+	//	inputLoop(inp, inputGetter, NULL, NULL);
+		if(i == 100)
+			running = 0;
+		i++;
+		if(i % 2 == 0)
+			sceneInterpret(&b);
+		else
+			sceneInterpret(&a);
+
+		sceneDestroy(&a);
+		sceneDestroy(&b);
 	}
 	inputDestroy(&inp);
 	return 0;

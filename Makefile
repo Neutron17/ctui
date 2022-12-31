@@ -11,11 +11,14 @@ INCFLAGS  = -Isrc/
 
 CCFLAGS += $(INCFLAGS)
 CCFLAGS += -O0
+CCFLAGS += -ggdb
 CCFLAGS += -Wall
 CCFLAGS += -pedantic
+CCFLAGS += -fno-omit-frame-pointer
 
 LDFLAGS  = $(INCFLAGS)
 LDFLAGS += -lm
+LDFLAGS += -lpthread
 
 INSTALL_PATH = /usr/local/bin
 
@@ -25,7 +28,7 @@ run: build
 	$(BIN)/$(PNAME) $*
 
 build: $(OBJ)
-	$(CC) $(CCFLAGS) -ggdb -o $(BIN)/$(PNAME) $(filter %.o,$^) $(LDFLAGS)
+	$(CC) $(CCFLAGS) -o $(BIN)/$(PNAME) $(filter %.o,$^) $(LDFLAGS)
 
 clean:
 	rm $(BIN)/* $(OBJ)
@@ -34,5 +37,5 @@ install: build
 	cp $(BIN)/$(PNAME) $(INSTALL_PATH)
 
 %.o: %.c
-	$(CC) -ggdb -o $@ -c $< $(CCFLAGS)
+	$(CC) -o $@ -c $< $(CCFLAGS)
 

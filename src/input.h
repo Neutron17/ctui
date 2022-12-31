@@ -36,8 +36,8 @@ typedef struct {
 	void *value;
 } InputRet;
 
-Input_t inputInit(unsigned len, const InputHandler *handlers, InputFn fallbackHandler);
-void inputDestroy(Input_t *restrict input);
+Input_t inputInit(unsigned len, const InputHandler handlers[static 1], InputFn fallbackHandler);
+void inputDestroy(Input_t input[static 1]);
 void inputLoop(Input_t input, char (*getInput)(void *), void *getInput_arg, InputRet *retVal);
 
 #endif // !_NTR_INPUT_H_

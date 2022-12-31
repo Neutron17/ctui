@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
-Input_t inputInit(unsigned len, const InputHandler *handlers, InputFn fallbackHandler) {
+#include "common.h"
+
+Input_t inputInit(unsigned len, const InputHandler handlers[static 1], InputFn fallbackHandler) {
 	Input_t ret = {
 		.len = len,
 		.handlers = malloc(sizeof(InputHandler)*len),
@@ -17,7 +19,7 @@ err:
 	return (Input_t){0};
 }
 
-void inputDestroy(Input_t *restrict input) {
+void inputDestroy(Input_t input[static 1]) {
 	free((void *)input->handlers);
 	input->handlers = NULL;
 }
