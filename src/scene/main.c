@@ -15,10 +15,10 @@ static inline void clear(void) {
 	printf("\033[H\033[J");
 }
 
-int isDebug = 0;
+//int isDebug = 1;
 
 int mainer(int argc, char *argv[]) {
-	inputInit();
+	//inputInit();
 	char inp = 'b';
 	int running = 1;
 	int i = 0;
@@ -55,7 +55,7 @@ int mainer(int argc, char *argv[]) {
 	fclose(f);
 	return 0;*/
 	struct Scene b = sceneParse("bar.dat");
-	while(running) {
+	while(0) {
 		clear();
 		if(i == 10000)
 			running = 0;
@@ -85,6 +85,16 @@ int mainer(int argc, char *argv[]) {
 				break;
 		}
 	}
+	fflush(stdout);
+	char *string = sceneStringify(a);
+
+	FILE *file = fopen("log.txt", "w");
+	if(!file)
+		abort();
+	fprintf(file, "%s", string);
+	fclose(file);
+	free(string);
+
 	sceneDestroy(&a);
 	sceneDestroy(&b);
 	return 0;

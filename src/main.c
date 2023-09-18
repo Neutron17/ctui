@@ -16,6 +16,7 @@
  */
 
 bool running = true;
+const bool isDebug = true;
 
 /*
  * FUNCTIONS
@@ -46,8 +47,8 @@ char inputGetter(void *arg) {
 }
 
 int main(int argc, char *argv[]) {
-	termiosInit();
-	clear();
+//	termiosInit();
+	//clear();
 	InputHandler handlers[2] = {
 		(InputHandler) {
 			.key = "wasd",
@@ -69,21 +70,23 @@ int main(int argc, char *argv[]) {
 
 	int i = 0;
 	while(running) {
-		struct Scene a = sceneParse("foo.dat");
-		struct Scene b = sceneParse("bar.dat");
+		struct Scene b = sceneParse("foo.dat");
 		clear();
 	//	inputLoop(inp, inputGetter, NULL, NULL);
-		if(i == 100)
-			running = 0;
 		i++;
-		if(i % 2 == 0)
+		//if(i == 100)
+			running = false;
+		if((i % 2) == 0)
 			sceneInterpret(&b);
-		else
-			sceneInterpret(&a);
+//		else
+//			sceneInterpret(&a);
 
-		sceneDestroy(&a);
 		sceneDestroy(&b);
 	}
+	struct Scene a = sceneParse("bar.dat");
+	sceneInterpret(&a);
+	sceneDestroy(&a);
+
 	inputDestroy(&inp);
 	return 0;
 }

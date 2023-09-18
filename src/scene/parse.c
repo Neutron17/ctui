@@ -11,6 +11,14 @@
 
 #define ESC "\033["
 
+// TODO: Should it be read from file?
+static const char *sceneLut[] = {
+	"NewLine", "Reset", "BlinkSlow", "BlinkRapid", "BlinkStop", "Bold", "Italic", "ItalicEnd",
+	"Underline", "DoubleUnderline", "UnderlineEnd", "Faint",
+	"Strike", "StrikeEnd", "NormalIntents", "Framed", "Circled", "NoFrame", "Overline", "OverlineEnd",
+	"GenericText", "Color", "Foreground", "Background", "TrueColor", "TrueForeground", "TrueBackground"
+};
+
 // accessed in complex.c
 const char *prims[0x14] = {
 	"\n",
@@ -34,12 +42,33 @@ const char *prims[0x14] = {
 	// Overline
 	ESC"53m", ESC"55m"
 };
+/*{
+	if(isDebug) {
+		printf("%lu\tAdded:\t\t%02x", pos, c);
+		if(ret.instructions[pos-1] == PT_INSTR_B) {
+       		printf("(%s)", sceneLut[c]);
+    	}
+        puts("");
+	}
+	ret.instructions[pos] = c;
+	pos++;
+}*/
+#define INSTR_ADD(c) { if(isDebug) { printf("%lu\tAdded:\t\t%02x", pos, c); if(ret.instructions[pos-1] == PT_INSTR_B) { printf("(%s)", sceneLut[c]); } puts("");}ret.instructions[pos] = c; pos++;}
+
+#define INSTR_ADD_NO_NL(c) \
+{ \
+	if(isDebug) { printf("%lu\tAdded:\t\t%02x", pos, c); }\
+	ret.instructions[pos] = c; \
+	pos++; \
+}
+// set C to next c(either from file or from buff)
+#define C_NEXT(C) {if(i >= 3) { C = getc(file); } else { C = buff[i+1]; }; i++; }
 
 const ComplexFn comps[PI_MAX-PI_GENERIC] = {
 	generic, color, fg, bg, tcolor, tfg, tbg
 };
 
-extern int isDebug;
+extern const bool isDebug;
 
 struct Scene sceneParse(const char *restrict fname) {
 	struct Scene ret;
@@ -60,22 +89,29 @@ struct Scene sceneParse(const char *restrict fname) {
 		return ret;
 	}
 	int c;
+	while((c = getc(file)) != PT_START && c != EOF) {}
+	if(c == EOF)
+		abort();
 	unsigned long pos = 0;
-	char buff[4];
-	while((c = fread(buff, 4, 1, file)) != -1) {
-		for(c = *buff; c < 4; c++, c = buff[c]) {
-			if(c == '\0')
-				break;
+	INSTR_ADD(PT_START);
+	char buff[4] = "\0\0\0\0";
+
+	while(fread(buff, 4, 1, file) != -1) {
+		for(unsigned char i = 0, c = *buff; i < 4; i++, c = buff[i]) {
+			while(c == 0x00)
+				C_NEXT(c);
 			if(c == PT_END) {
-				if(isDebug)
-					printf("%lu\tNot Added:\t\t%02x\n", pos, PT_END);
-				break;
+				INSTR_ADD(c);
+				goto after;
 			}
 			if(pos >= ret.size) {
 				if(isDebug)
 					puts("NOTE: Resizing");
 				if((pos * 2) > MAX_FD_LEN) {
 					fprintf(stderr, "ERROR: File too long\n");
+					if(isDebug) {
+						printf("DEBUG: pos=%lu, MAX_FD_LEN=%d\n", pos, MAX_FD_LEN);
+					}
 					ret.size = pos;
 					return ret;
 				}
@@ -86,58 +122,40 @@ struct Scene sceneParse(const char *restrict fname) {
 				}
 				ret.size *= 2;
 			}
-			while(c == 0x00)
-				c = getc(file);
 			if(c == PT_INSTR_B) {
-				ret.instructions[pos] = c;
-				if(isDebug)
-					printf("%lu\tAdded:\t\t%02x\n", pos, PT_INSTR_B);
-				pos++;
-				if((c = getc(file)) == PI_TCOLOR) {
-					ret.instructions[pos] = c;
-					if(isDebug)
-						printf("%lu\tAdded:\t\t%02x\n", pos, c);
-					pos++;
-					for(int i = 0; i < 6; i++) {
-						c = getc(file);
-						ret.instructions[pos] = c;
-						if(isDebug)
-							printf("%lu\tAdded:\t\t%02x\n", pos, c);
-						pos++;
+				INSTR_ADD(c);
+				C_NEXT(c);
+				if(c == PI_TCOLOR) {
+					INSTR_ADD(c);
+					for(int j = 0; j < 6; j++) {
+						C_NEXT(c);
+						INSTR_ADD(c);
 					}
-				} else if(c != PT_INSTR_E) {
-					ret.instructions[pos] = c;
-					if(isDebug)
-						printf("%lu\tAdded:\t\t%02x\n", pos, c);
-					pos++;
-				} else if(isDebug) { // instruction end
-					printf("%lu\tAdded:\t%02x\n", pos, PT_INSTR_E);
+				} else {
+					INSTR_ADD(c);
 				}
 				int depth = 0;
+				// Add all bytes until PT_INSTR_E
 				while(c != PT_INSTR_E && depth < MAX_INTR_DEPTH) { // primitive list
 					depth++;
-					c = getc(file);
-					ret.instructions[pos] = c;
+					C_NEXT(c);
+					INSTR_ADD_NO_NL(c);
 					if(isDebug) {
-						printf("%lu\tAdded(%d):\t%02x", pos, depth, c);
 						if(isalpha(c))
 							printf("(%c)", c);
 						puts("");
 					}
-					pos++;
 				}
 				continue;
 			}
-			ret.instructions[pos] = c;
-			if(isDebug)
-				printf("%lu\tAdded:\t\t%02x\n", pos, c);
-			pos++;
+			INSTR_ADD(c);
 		}
 		buff[0] = '\0';
 		buff[1] = '\0';
 		buff[2] = '\0';
 		buff[3] = '\0';
 	}
+after:
 	ret.size = pos;
 	fclose(file);
 //	for(int i = 0; i < ret.size; i++)
@@ -145,7 +163,7 @@ struct Scene sceneParse(const char *restrict fname) {
 	return ret;
 }
 
-void sceneInterpret(struct Scene *data) {
+void sceneCompile(struct Scene *data) {
 	if(data->instructions == NULL)
 		return;
 	if(data->cache != NULL) { // Already cached
@@ -169,16 +187,16 @@ void sceneInterpret(struct Scene *data) {
 		if(!started) {
 			if(*c == PT_START)
 				started = 1;
-			continue;
+			goto cont;
 		}
 		switch (*c) {
 			case PT_END:
-				goto end;
+				return;
 			case PT_INSTR_B: {
 				c++;
 				//printf("here %02x\n", *c);
 				if(*c == PT_INSTR_E)
-					continue;
+					goto cont;
 				if(*c < PI_GENERIC) { // c is primitive, next must be a primitive or 0xFF
 prim_up:
 					//printf("\n%02x\n", *c);
@@ -202,13 +220,10 @@ prim_up:
 				}
 			}
 		}
+cont:
 		c++;
 		pos++;
 	}
-end:;
-    	printf("%s", data->cache);
-	fflush(stdout);
-	return;
 err:;
 	FILE *f = fopen("err.txt", "w");
 	if(!f)
@@ -218,6 +233,13 @@ err:;
 err_aft:;
 	fprintf(stderr, "%lu: %s\n", pos, err_msg);
 	exit(-1);
+}
+
+void sceneInterpret(struct Scene *data) {
+	sceneCompile(data);
+    	printf("%s", data->cache);
+	fflush(stdout);
+	return;
 }
 
 static void *interp_mediator(void *data) {
@@ -250,16 +272,8 @@ void sceneDestroy(struct Scene *data) {
 	}
 }
 
-// TODO: Should it be read from file?
-const char *sceneLut[] = {
-	"NewLine", "Reset", "BlinkSlow", "BlinkRapid", "BlinkStop", "Bold", "Italic", "ItalicEnd",
-	"Underline", "UnderlineEnd", "DoubleUnderline", "DoubleUnderlineEnd", "UnderlineEnd", "Faint",
-	"Strike", "StrikeEnd", "NormalIntents", "Framed", "Circled", "NoFrame", "Overline", "OverlineEnd",
-	"GenericText", "Color", "Foreground", "Background", "TrueColor", "TrueForeground", "TrueBackground"
-};
-
 // WARNING: return value is dynamically allocated
-// Asumes valid scene
+// Assumes valid scene
 char *sceneStringify(struct Scene scene) {
 	char *dest = malloc(128);
 	strncpy(dest, 
@@ -273,15 +287,19 @@ char *sceneStringify(struct Scene scene) {
 			strcat(dest, " ");
 			if(inst[i] < PI_GENERIC) { // primitive
 				printf("\n\t");
-			} else { // complex
-				if(inst[i] == PI_GENERIC) {
+			} else { // complex 
+				
+				if(inst[i] == PI_GENERIC) { // TODO: corrupted texr
+					strcat(dest, sceneLut[PI_GENERIC]);
 					int j = 0;
-					char buff[32];
+					char buff[MAX_STR];
 					do {
 						i++; j++;
 						buff[j] = inst[i];
 					} while(inst[i] != PT_INSTR_E) ;
+					buff[j] = '\0';
 					strcat(dest, buff);
+					strcat(dest, " ");
 				} else { 
 					if(inst[i] == PI_FG || inst[i] == PI_BG) {
 						i++;
@@ -303,7 +321,7 @@ void scenePrint(struct Scene scene) {
 	// TODO
 }
 
-bool isSceeneValid(struct Scene scene) {
+bool isSceneValid(struct Scene scene) {
 	// TODO
 	return true;
 }

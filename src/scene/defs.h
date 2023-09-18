@@ -14,7 +14,7 @@
 #define DEF_FD_LEN	64
 // Maximum length of Scene.instructions field
 // parseFile will fail if the file is longer
-#define MAX_FD_LEN	256
+#define MAX_FD_LEN	1024//256
 // Maximum number of primitive instructions inside
 // primitive list
 #define MAX_INTR_DEPTH	16
@@ -23,7 +23,7 @@
 *  TYPE DEFINITIONS  *
 *********************/
 
-struct Scene {
+struct StaticScene {
 	// Dynamically allocated list of instruction bytes
 	unsigned char *instructions;
 	// Length of instructions
@@ -132,7 +132,7 @@ enum ParseInstruction {
 	*************************/
 
 /* 0x17	0x14				<text_bytes>	0xFF */
-	PI_GENERIC = 0x14,
+	PI_GENERIC = 0x14, // not NULL-terminated
 
 	/*****************
 	*  8 bit colors  *
@@ -157,8 +157,18 @@ enum ParseInstruction {
 /* 0x17 0x1A	<1B_r> <1B_g> <1B_b>			0xFF */
 	PI_TBG,
 
-	PI_MAX
+	/*************
+	*  Selector  *
+	*************/
+	PI_MAX,
+	
+/* 0x17 0x1B	<element> SELECT_NEXT ... SELECT_END 	0xFF */
+	PI_SELECT,
+/* 0x17	0x1C						0xFF */
+	PI_SELECT_NEXT,
+/* 0x17	0x1D						0xFF */
+	PI_SELECT_END,
+
 };
 
 #endif /* ifndef _NTR_PARSER_H_ */
-
